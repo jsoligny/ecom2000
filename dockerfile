@@ -49,8 +49,8 @@ ENV USE_CUDA=1 \
     MKL_NUM_THREADS=1
 
 # Réseau
-EXPOSE 8000
+EXPOSE 80
 
 # Démarrage FastAPI
 # Ajuste le module si server.py n’est pas à la racine ou si l’app s’appelle autrement
-CMD ["uvicorn", "server-gpu:app", "--host", "0.0.0.0", "--port", "8000", "--workers", "1"]
+CMD ["uvicorn", "server-gpu:app", "--host", "0.0.0.0", "--port", "80", "--workers", "1"]
