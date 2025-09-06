@@ -18,15 +18,18 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     libjpeg-turbo-progs libgl1 \
     && rm -rf /var/lib/apt/lists/*
 
-# ---- Virtualenv pour contourner PEP 668 ----
+# ---- Virtualenv ----
 RUN python3 -m venv /opt/venv
 ENV PATH="/opt/venv/bin:$PATH"
 
-# Versions CUDA/Torch : cu121 (CUDA 12.1+, OK pour base 12.2 runtime)
-# Installe d’abord la bonne roue GPU pour Torch, sinon Ultralytics risque d’installer la version CPU.
+# IMPORTANT : installer d'abord numpy<2 pour satisfaire onnxruntime-gpu
 RUN python -m pip install --upgrade pip \
- && python -m pip install --index-url https://download.pytorch.org/whl/cu121 \
-      torch==2.4.1 torchvision==0.19.1 torchaudio==2.4.1
+ && python -m pip install "numpy==1.26.4" \
+ && python -m pip install --index-url https://download.pytorch.org/whl/cu124 \
+      torch==2.4.1 torchvision==0.19.1 torchaudio==2.4.1 \
+ && python -m pip install onnxruntime-gpu==1.18.1
+# puis le reste de tes deps
+RUN python -m pip install -r requirements.txt
 
 # (Optionnel) ORT GPU avant le reste pour fail-fast en cas de mismatch CUDA
 RUN python -m pip install onnxruntime-gpu==1.18.1
