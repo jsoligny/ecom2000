@@ -20,7 +20,7 @@ RUN apt-get update && apt-get install -y \
 
 # Clone du repo (remplace par ton URL)
 WORKDIR /app
-RUN git clone http://51.255.71.149:4080/jsoligny/ecom2000.git .
+RUN git clone https://github.com/jsoligny/ecom2000.git .
 # ou si tu veux une branche spécifique :
 # RUN git clone -b main https://github.com/ton-organisation/ton-repo.git .
 
