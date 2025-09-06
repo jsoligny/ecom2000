@@ -30,7 +30,10 @@ RUN python -m pip install --upgrade pip \
 
 # ---- Clone du dépôt ----
 WORKDIR /app
-RUN git clone https://github.com/jsoligny/ecom2000.git .
+# change cette valeur à chaque build (ex: timestamp, commit, etc.)
+ARG CACHE_BUST=initial
+RUN echo "CACHE_BUST=$CACHE_BUST" \
+ && git clone --depth 1 -b main https://github.com/jsoligny/ecom2000.git .
 
 # Sanity check
 RUN ls -la && test -f requirements.txt || (echo "requirements.txt manquant" && exit 1)
