@@ -72,6 +72,7 @@ app = FastAPI(title="ecom-2000 worker", version="1.0.0")
 ALLOWED_ORIGINS = [
     "http://localhost:5173",
     "http://127.0.0.1:5173",
+    "http://51.255.71.149:8001",
 ]
 
 app.add_middleware(
@@ -470,3 +471,4 @@ async def process_endpoint(
 
 # Pour lancer :
 # uvicorn server:app --host 0.0.0.0 --port 8000 --workers 1
+
