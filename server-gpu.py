@@ -472,3 +472,18 @@ async def process_endpoint(
 # Pour lancer :
 # uvicorn server:app --host 0.0.0.0 --port 8000 --workers 1
 
+# --- AJOUT EN BAS DE server.py ---
+
+def initialize_for_worker():
+    """Init lazy pour l'exécution serverless (warmup CUDA/ORT, optionnel YOLO)."""
+    os.environ.setdefault("OMP_NUM_THREADS", "1")
+    os.environ.setdefault("MKL_NUM_THREADS", "1")
+    ensure_rembg_session(DEFAULT_MODEL)
+    # Si YOLO te sert en serverless, décommente :
+    # ensure_yolo()
+
+def process_bytes_to_dict(data: bytes, **kwargs) -> dict:
+    """Enrobe process_image_core pour retourner un dict JSON-sérialisable."""
+    report, mime, b64 = process_image_core(data=data, **kwargs)
+    return {"report": report.model_dump(), "image_mime": mime, "image_b64": b64}
+
