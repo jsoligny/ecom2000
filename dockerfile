@@ -3,7 +3,7 @@
 # ============================
 
 # Runtime CUDA + cuDNN (Ubuntu 22.04)
-FROM nvidia/cuda:12.2.2-cudnn9-runtime-ubuntu22.04
+FROM nvidia/cuda:13.0.0-cudnn-runtime-ubuntu24.04
 
 ENV DEBIAN_FRONTEND=noninteractive \
     PYTHONDONTWRITEBYTECODE=1 \
