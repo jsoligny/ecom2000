@@ -7,3 +7,4 @@ rembg[birefnet]==2.*         # ou pinne la version que tu utilises
 onnxruntime-gpu==1.18.*      # compatible CUDA 12 (ajuste si besoin)
 
 ultralytics==8.*             # YOLOv8/11
+python-multipart
