@@ -25,7 +25,8 @@ RUN python -m pip install --upgrade pip \
  && python -m pip install "numpy==1.26.4" \
  && python -m pip install --index-url https://download.pytorch.org/whl/cu124 \
       torch==2.4.1 torchvision==0.19.1 torchaudio==2.4.1 \
- && python -m pip install onnxruntime-gpu==1.18.1
+ && python -m pip install onnxruntime-gpu==1.18.1 \
+ && python -m pip install python-multipart
 
 # ---- Clone du dépôt ----
 WORKDIR /app
