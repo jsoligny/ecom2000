@@ -1,6 +1,6 @@
 # handler.py
 import base64
-from server import (
+from server-gpu import (
     initialize_for_worker, process_bytes_to_dict,
     DEFAULT_MODEL, TARGET_FILL_MIN, TARGET_FILL_MAX,
     AM_FG_T, AM_BG_T, AM_ERODE_PX
