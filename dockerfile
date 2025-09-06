@@ -63,6 +63,24 @@ RUN python -m pip install "runpod==1.*"
 # Environnement (GPU)
 ENV USE_CUDA=1 REMBG_MODEL=birefnet-massive OMP_NUM_THREADS=1 MKL_NUM_THREADS=1
 
+# Dossier cache modèles rembg
+ENV U2NET_HOME=/opt/models/u2net
+RUN mkdir -p "$U2NET_HOME"
+
+# Pré-télécharger les modèles désirés au build (pas de download au runtime)
+# -> 'birefnet-massive' au minimum ; ajoute d'autres si tu veux
+RUN python - <<'PY'
+from rembg import new_session
+for m in ["birefnet-massive"]:
+    print(f"Preloading {m} ...")
+    s = new_session(m)  # déclenche le download dans U2NET_HOME si absent
+print("Done.")
+PY
+
+# Vérification (fichier non vide)
+RUN test -s "$U2NET_HOME/birefnet-massive.onnx" || (echo "birefnet-massive.onnx introuvable" && ls -la "$U2NET_HOME" && exit 1)
+
+
 # Pas besoin d'EXPOSE ni d'uvicorn ici
 CMD ["python", "-u", "handler.py"]
 
