@@ -1,23 +1,21 @@
-import base64
 from server import (
-    initialize_for_worker, process_bytes_to_dict,
+    initialize_for_worker, process_bytes_to_dict,  # si présents
     DEFAULT_MODEL, TARGET_FILL_MIN, TARGET_FILL_MAX,
-    AM_FG_T, AM_BG_T, AM_ERODE_PX
+    AM_FG_T, AM_BG_T, AM_ERODE_PX, process_image_core
 )
-import runpod
+import base64, runpod
 
-initialize_for_worker()
+try:
+    initialize_for_worker()
+except Exception:
+    pass
 
 def handler(event):
     inp = (event or {}).get("input", {}) or {}
     b64 = inp.get("image_b64")
     if not b64:
-        return {"error": "image_b64 manquant"}  # upload obligatoire
-
-    try:
-        data = base64.b64decode(b64)
-    except Exception:
-        return {"error": "image_b64 invalide (base64)"}
+        return {"error": "image_b64 manquant"}
+    data = base64.b64decode(b64)
 
     params = {
         "fmt": (inp.get("fmt") or "jpeg").lower(),
@@ -35,9 +33,10 @@ def handler(event):
         "fill_max": float(inp.get("fill_max") or TARGET_FILL_MAX),
     }
 
-    try:
+    if 'process_bytes_to_dict' in globals():
         return process_bytes_to_dict(data, **params)
-    except Exception as e:
-        return {"error": str(e)}
+
+    report, mime, b64 = process_image_core(data=data, **params)
+    return {"report": report.model_dump(), "image_mime": mime, "image_b64": b64}
 
 runpod.serverless.start({"handler": handler})
