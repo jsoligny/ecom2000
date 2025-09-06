@@ -48,6 +48,18 @@ ENV USE_CUDA=1 \
 
 # Réseau
 EXPOSE 80
+# ... (toutes tes étapes précédentes inchangées : apt, venv, numpy==1.26.4, torch cu124, onnxruntime-gpu, git clone, pip -r) ...
 
-# Démarrage FastAPI
-CMD ["uvicorn", "server-gpu:app", "--host", "0.0.0.0", "--port", "80", "--workers", "1"]
+# Installer la lib Runpod côté worker
+RUN python -m pip install "runpod==1.*"
+
+# Si handler.py est dans ton repo, nothing to do.
+# Si tu le crées localement à côté du Dockerfile, ajoute:
+# COPY handler.py /app/handler.py
+
+# Environnement (GPU)
+ENV USE_CUDA=1 REMBG_MODEL=birefnet-massive OMP_NUM_THREADS=1 MKL_NUM_THREADS=1
+
+# Pas besoin d'EXPOSE ni d'uvicorn ici
+CMD ["python", "-u", "handler.py"]
+
