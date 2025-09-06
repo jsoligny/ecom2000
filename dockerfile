@@ -31,7 +31,7 @@ RUN python -m pip install --upgrade pip \
 # ---- Clone du dépôt ----
 WORKDIR /app
 # change cette valeur à chaque build (ex: timestamp, commit, etc.)
-ARG CACHE_BUST=initial
+ARG CACHE_BUST=v1
 RUN echo "CACHE_BUST=$CACHE_BUST" \
  && git clone --depth 1 -b main https://github.com/jsoligny/ecom2000.git .
 
