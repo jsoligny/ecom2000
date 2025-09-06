@@ -1,0 +1,8 @@
+fastapi==0.115.*
+uvicorn[standard]==0.30.*
+pydantic==2.*
+pillow==10.*
+numpy==2.*
+rembg[birefnet]==2.*         # ou pinne la version que tu utilises
+onnxruntime-gpu==1.18.*      # compatible CUDA 12 (ajuste si besoin)
+ultralytics==8.*             # YOLOv8/11
