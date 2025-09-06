@@ -1,8 +1,7 @@
 # ============================
-# Dockerfile — GPU FastAPI worker
+# Dockerfile — GPU FastAPI worker (fix minimal)
 # ============================
 
-# Runtime CUDA + cuDNN (Ubuntu 22.04)
 FROM nvidia/cuda:13.0.0-cudnn-runtime-ubuntu24.04
 
 ENV DEBIAN_FRONTEND=noninteractive \
@@ -11,49 +10,39 @@ ENV DEBIAN_FRONTEND=noninteractive \
     PIP_DISABLE_PIP_VERSION_CHECK=1 \
     PIP_NO_CACHE_DIR=1
 
-# Outils système
 RUN apt-get update && apt-get install -y --no-install-recommends \
     git python3 python3-pip python3-venv python3-dev \
-    build-essential \
-    libjpeg-turbo-progs libgl1 \
-    && rm -rf /var/lib/apt/lists/*
+    build-essential libjpeg-turbo-progs libgl1 \
+ && rm -rf /var/lib/apt/lists/*
 
-# ---- Virtualenv ----
+# venv
 RUN python3 -m venv /opt/venv
 ENV PATH="/opt/venv/bin:$PATH"
 
-# IMPORTANT : installer d'abord numpy<2 pour satisfaire onnxruntime-gpu
+# Pin numpy<2 puis GPU libs
 RUN python -m pip install --upgrade pip \
  && python -m pip install "numpy==1.26.4" \
  && python -m pip install --index-url https://download.pytorch.org/whl/cu124 \
       torch==2.4.1 torchvision==0.19.1 torchaudio==2.4.1 \
  && python -m pip install onnxruntime-gpu==1.18.1
-# puis le reste de tes deps
-RUN python -m pip install -r requirements.txt
 
-# (Optionnel) ORT GPU avant le reste pour fail-fast en cas de mismatch CUDA
-RUN python -m pip install onnxruntime-gpu==1.18.1
-
-# ---- Clone ton dépôt ----
+# ---- Clone du dépôt ----
 WORKDIR /app
-# Remplace l’URL/branche par les tiennes. Pour une branche précise :
-# RUN git clone -b main https://github.com/ton-organisation/ton-repo.git .
 RUN git clone https://github.com/jsoligny/ecom2000.git .
 
-# ---- Dépendances Python du projet ----
-# Assure-toi que requirements.txt est à la racine du repo.
-RUN test -f requirements.txt || (echo "requirements.txt manquant" && exit 1) \
- && python -m pip install -r requirements.txt
+# Sanity check (facultatif mais utile en CI)
+RUN ls -la && test -f requirements.txt || (echo "requirements.txt manquant" && exit 1)
 
-# Vars d’exécution
+# ---- Installer les deps du projet (après clone !) ----
+# Si ton requirements.txt essaye de ré-installer numpy>=2, crée un constraints temporaire :
+RUN echo "numpy==1.26.4" > /tmp/constraints.txt \
+ && python -m pip install -r requirements.txt -c /tmp/constraints.txt
+
 ENV USE_CUDA=1 \
     REMBG_MODEL=birefnet-massive \
     OMP_NUM_THREADS=1 \
     MKL_NUM_THREADS=1
 
-# Réseau
 EXPOSE 80
-
-# Démarrage FastAPI
-# Ajuste le module si server.py n’est pas à la racine ou si l’app s’appelle autrement
 CMD ["uvicorn", "server-gpu:app", "--host", "0.0.0.0", "--port", "80", "--workers", "1"]
+
