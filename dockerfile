@@ -1,5 +1,5 @@
 # ============================
-# Dockerfile — GPU FastAPI worker (fix minimal)
+# Dockerfile — GPU FastAPI worker (fix OpenCV/GLib)
 # ============================
 
 FROM nvidia/cuda:13.0.0-cudnn-runtime-ubuntu24.04
@@ -10,16 +10,17 @@ ENV DEBIAN_FRONTEND=noninteractive \
     PIP_DISABLE_PIP_VERSION_CHECK=1 \
     PIP_NO_CACHE_DIR=1
 
+# Outils système + libs requises par OpenCV (cv2)
 RUN apt-get update && apt-get install -y --no-install-recommends \
-    git python3 python3-pip python3-venv python3-dev \
-    build-essential libjpeg-turbo-progs libgl1 \
- && rm -rf /var/lib/apt/lists/*
+    git python3 python3-pip python3-venv python3-dev build-essential \
+    libglib2.0-0 libgl1 libsm6 libxext6 libxrender1 \
+    && rm -rf /var/lib/apt/lists/*
 
-# venv
+# ---- Virtualenv ----
 RUN python3 -m venv /opt/venv
 ENV PATH="/opt/venv/bin:$PATH"
 
-# Pin numpy<2 puis GPU libs
+# Important : NumPy 1.x avant ORT (compat ABI), puis Torch GPU cu124 et ORT GPU
 RUN python -m pip install --upgrade pip \
  && python -m pip install "numpy==1.26.4" \
  && python -m pip install --index-url https://download.pytorch.org/whl/cu124 \
@@ -30,19 +31,22 @@ RUN python -m pip install --upgrade pip \
 WORKDIR /app
 RUN git clone https://github.com/jsoligny/ecom2000.git .
 
-# Sanity check (facultatif mais utile en CI)
+# Sanity check
 RUN ls -la && test -f requirements.txt || (echo "requirements.txt manquant" && exit 1)
 
-# ---- Installer les deps du projet (après clone !) ----
-# Si ton requirements.txt essaye de ré-installer numpy>=2, crée un constraints temporaire :
+# Installer les deps du projet en forçant numpy<2 si besoin
 RUN echo "numpy==1.26.4" > /tmp/constraints.txt \
  && python -m pip install -r requirements.txt -c /tmp/constraints.txt
 
+# Vars d’exécution
 ENV USE_CUDA=1 \
     REMBG_MODEL=birefnet-massive \
     OMP_NUM_THREADS=1 \
-    MKL_NUM_THREADS=1
+    MKL_NUM_THREADS=1 \
+    OPENCV_LOG_LEVEL=ERROR
 
+# Réseau
 EXPOSE 80
-CMD ["uvicorn", "server-gpu:app", "--host", "0.0.0.0", "--port", "80", "--workers", "1"]
 
+# Démarrage FastAPI
+CMD ["uvicorn", "server-gpu:app", "--host", "0.0.0.0", "--port", "80", "--workers", "1"]
