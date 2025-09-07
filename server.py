@@ -22,12 +22,10 @@ from PIL import Image, ImageFilter, ImageCms, ImageOps
 # --- rembg
 from rembg import remove, new_session
 
+# ... garde tes imports actuels SAUF ceci :
 # --- YOLO (optionnel)
-try:
-    from ultralytics import YOLO
-    _YOLO_IMPORT_OK = True
-except Exception:
-    _YOLO_IMPORT_OK = False
+# supprime l'import au top et remplace par une importation tardive dans ensure_yolo()
+_YOLO_IMPORT_OK = True  # flag
 
 os.environ.setdefault("U2NET_HOME", "/opt/models/u2net")
 
@@ -132,22 +130,22 @@ def np_bbox_from_alpha(alpha: Image.Image, thr: int = 10) -> Tuple[int, int, int
 #     DÉTECTION OBJETS
 # =========================
 
+
+
 def ensure_yolo(model_name: str = "yolov8n.pt"):
-    if gstate.yolo_model is None and _YOLO_IMPORT_OK:
-        t0 = time.perf_counter()
-        logger.info(f"Chargement du modèle YOLO '{model_name}'…")
+    global _YOLO_IMPORT_OK
+    if not _YOLO_IMPORT_OK:
+        return None
+    if gstate.yolo_model is None:
         try:
-            gstate.yolo_model = YOLO(model_name)
-            # force CUDA si possible
-            if USE_CUDA and torch.cuda.is_available():
-                gstate.yolo_model.to("cuda")
-                # warmup rapide
-                gstate.yolo_model.predict(source=np.zeros((32,32,3), dtype=np.uint8), imgsz=32, verbose=False)
-            logger.info(f"YOLO chargé en {time.perf_counter() - t0:.3f}s (cuda={torch.cuda.is_available()})")
+            # import tardif -> ne coûte rien si no_yolo=True
+            from ultralytics import YOLO
         except Exception as e:
-            logger.warning(f"Échec chargement YOLO: {e}")
-            gstate.yolo_model = None
-    return gstate.yolo_model
+            logger.warning(f"Ultralytics indisponible: {e}")
+            _YOLO_IMPORT_OK = False
+            return None
+        # ... suite de ta fonction inchangée ...
+
 
 
 def detect_bbox_yolo(rgb: Image.Image) -> Optional[Tuple[int, int, int, int]]:
@@ -488,5 +486,6 @@ def process_bytes_to_dict(data: bytes, **kwargs) -> dict:
     """Enrobe process_image_core pour retourner un dict JSON-sérialisable."""
     report, mime, b64 = process_image_core(data=data, **kwargs)
     return {"report": report.model_dump(), "image_mime": mime, "image_b64": b64}
+
 
 
