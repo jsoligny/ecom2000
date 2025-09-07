@@ -8,7 +8,6 @@ from fastapi.middleware.cors import CORSMiddleware
 import base64
 import io
 import os
-import torch
 import time
 import logging
 from dataclasses import dataclass
@@ -486,6 +485,7 @@ def process_bytes_to_dict(data: bytes, **kwargs) -> dict:
     """Enrobe process_image_core pour retourner un dict JSON-sérialisable."""
     report, mime, b64 = process_image_core(data=data, **kwargs)
     return {"report": report.model_dump(), "image_mime": mime, "image_b64": b64}
+
 
 
 
