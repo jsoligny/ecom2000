@@ -2,85 +2,65 @@
 # Dockerfile — GPU FastAPI worker (fix OpenCV/GLib)
 # ============================
 
-FROM nvidia/cuda:13.0.0-cudnn-runtime-ubuntu24.04
+FROM nvidia/cuda:13.0.0-base-ubuntu24.04
+
 
 ENV DEBIAN_FRONTEND=noninteractive \
-    PYTHONDONTWRITEBYTECODE=1 \
-    PYTHONUNBUFFERED=1 \
     PIP_DISABLE_PIP_VERSION_CHECK=1 \
-    PIP_NO_CACHE_DIR=1
+    PIP_NO_CACHE_DIR=1 \
+    U2NET_HOME=/opt/models/u2net \
+    OMP_NUM_THREADS=1 \
+    MKL_NUM_THREADS=1 \
+    PYTHONDONTWRITEBYTECODE=0 \ 
+    PYTHONOPTIMIZE=1
 
-# Outils système + libs requises par OpenCV (cv2)
+# libs système minimales + runtime OpenCV headless
 RUN apt-get update && apt-get install -y --no-install-recommends \
-    git python3 python3-pip python3-venv python3-dev build-essential \
-    libglib2.0-0 libgl1 libsm6 libxext6 libxrender1 \
-    && rm -rf /var/lib/apt/lists/*
+    python3 python3-venv python3-pip \
+    libglib2.0-0 libgl1 libsm6 libxext6 libxrender1 ca-certificates curl git \
+ && rm -rf /var/lib/apt/lists/*
 
-# ---- Virtualenv ----
+# venv
 RUN python3 -m venv /opt/venv
 ENV PATH="/opt/venv/bin:$PATH"
 
-# Important : NumPy 1.x avant ORT (compat ABI), puis Torch GPU cu124 et ORT GPU
+# Dépendances Python GPU minimales (NUMPY 1.x + ORT GPU)
 RUN python -m pip install --upgrade pip \
  && python -m pip install "numpy==1.26.4" \
- && python -m pip install --index-url https://download.pytorch.org/whl/cu124 \
-      torch==2.4.1 torchvision==0.19.1 torchaudio==2.4.1 \
  && python -m pip install onnxruntime-gpu==1.18.1 \
- && python -m pip install python-multipart
+ && python -m pip install pillow==10.* pydantic==2.* fastapi==0.115.* \
+    python-multipart
 
-# ---- Clone du dépôt ----
-WORKDIR /app
-# change cette valeur à chaque build (ex: timestamp, commit, etc.)
-ARG CACHE_BUST=$(Get-Date -UFormat %s)
-RUN echo "CACHE_BUST=$CACHE_BUST" \
- && git clone --depth 1 -b main https://github.com/jsoligny/ecom2000.git .
-
-# Sanity check
-RUN ls -la && test -f requirements.txt || (echo "requirements.txt manquant" && exit 1)
-
-# Installer les deps du projet en forçant numpy<2 si besoin
-RUN echo "numpy==1.26.4" > /tmp/constraints.txt \
- && python -m pip install -r requirements.txt -c /tmp/constraints.txt
-
-# Vars d’exécution
-ENV USE_CUDA=1 \
-    REMBG_MODEL=birefnet-massive \
-    OMP_NUM_THREADS=1 \
-    MKL_NUM_THREADS=1 \
-    OPENCV_LOG_LEVEL=ERROR
-
-# Réseau
-EXPOSE 80
-# ... (toutes tes étapes précédentes inchangées : apt, venv, numpy==1.26.4, torch cu124, onnxruntime-gpu, git clone, pip -r) ...
-
-# Installer la lib Runpod côté worker
-RUN python -m pip install "runpod==1.*"
-
-# Si handler.py est dans ton repo, nothing to do.
-# Si tu le crées localement à côté du Dockerfile, ajoute:
-# COPY handler.py /app/handler.py
-
-# Environnement (GPU)
-ENV USE_CUDA=1 REMBG_MODEL=birefnet-massive OMP_NUM_THREADS=1 MKL_NUM_THREADS=1
-
-# Dossier cache modèles rembg
-ENV U2NET_HOME=/opt/models/u2net
-RUN mkdir -p "$U2NET_HOME"
-
-# Pré-télécharger les modèles désirés au build (pas de download au runtime)
-# -> 'birefnet-massive' au minimum ; ajoute d'autres si tu veux
-RUN python - <<'PY'
+# Pré-télécharger BiRefNet dans l’image (pas de download à l’exécution)
+RUN mkdir -p "$U2NET_HOME" \
+ && python - <<'PY'
 from rembg import new_session
-for m in ["birefnet-massive"]:
-    print(f"Preloading {m} ...")
-    s = new_session(m)  # déclenche le download dans U2NET_HOME si absent
-print("Done.")
+new_session("birefnet-massive", providers=["CPUExecutionProvider"])
+print("Preloaded birefnet-massive into U2NET_HOME")
 PY
 
-# Vérification (fichier non vide)
-RUN test -s "$U2NET_HOME/birefnet-massive.onnx" || (echo "birefnet-massive.onnx introuvable" && ls -la "$U2NET_HOME" && exit 1)
+# ---- Code app ----
+WORKDIR /app
+# Si repo public :
+#   on bust le cache clone à chaque build si besoin
+ARG CACHE_BUST=$(Get-Date -UFormat %s)
+RUN echo "CACHE_BUST=$CACHE_BUST"
+RUN git clone --depth 1 -b main https://github.com/jsoligny/ecom2000.git .
 
+# Sinon, copie locale :
+# COPY . .
 
-# Pas besoin d'EXPOSE ni d'uvicorn ici
+# Installer les deps du projet (sans YOLO/torch)
+# IMPORTANT: si ton requirements.txt contient opencv-python, remplace par opencv-python-headless
+# et veille à ne pas tirer numpy>=2
+RUN echo "numpy==1.26.4" > /tmp/constraints.txt \
+ && python -m pip install -r requirements.txt -c /tmp/constraints.txt || true
+
+# Installer la lib Runpod (worker)
+RUN python -m pip install "runpod==1.*"
+
+# (optionnel) Compiler les .py en .pyc pour accélérer les imports
+RUN python -m compileall -q /app /opt/venv/lib/python3.10/site-packages || true
+
+# Entrée serverless
 CMD ["python", "-u", "handler.py"]
-
